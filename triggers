@@ -1,0 +1,247 @@
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC';
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Таблица accounts
+CREATE TRIGGER trigger_update_updated_at_accounts
+BEFORE UPDATE ON accounts
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица clients
+CREATE TRIGGER trigger_update_updated_at_clients
+BEFORE UPDATE ON clients
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица games
+CREATE TRIGGER trigger_update_updated_at_games
+BEFORE UPDATE ON games
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица launcher
+CREATE TRIGGER trigger_update_updated_at_launcher
+BEFORE UPDATE ON launcher
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица lobbies
+CREATE TRIGGER trigger_update_updated_at_lobbies
+BEFORE UPDATE ON lobbies
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица reports
+CREATE TRIGGER trigger_update_updated_at_reports
+BEFORE UPDATE ON reports
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица server
+CREATE TRIGGER trigger_update_updated_at_server
+BEFORE UPDATE ON server
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица sessions
+CREATE TRIGGER trigger_update_updated_at_sessions
+BEFORE UPDATE ON sessions
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица status
+CREATE TRIGGER trigger_update_updated_at_status
+BEFORE UPDATE ON status
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица users
+CREATE TRIGGER trigger_update_updated_at_users
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Таблица vpn
+CREATE TRIGGER trigger_update_updated_at_vpn
+BEFORE UPDATE ON vpn
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+
+-- Изменение состояния лобби на "AllJoined"
+CREATE OR REPLACE FUNCTION update_lobby_state_on_all_joined()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM sessions WHERE lobby_id = NEW.lobby_id
+    ) = 5 AND (
+        SELECT state FROM lobbies WHERE id = NEW.lobby_id
+    ) = 'Preparing' THEN
+        UPDATE lobbies SET state = 'AllJoined' WHERE id = NEW.lobby_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_lobby_state_on_all_joined
+AFTER INSERT OR UPDATE ON sessions
+FOR EACH ROW
+WHEN (NEW.lobby_id IS NOT NULL)
+EXECUTE FUNCTION update_lobby_state_on_all_joined();
+
+
+CREATE OR REPLACE FUNCTION update_role_on_lobby_join()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM sessions WHERE lobby_id = NEW.lobby_id
+        AND role = 'Leader'
+    ) = 0 THEN
+        NEW.role = 'Leader';
+    ELSE
+        NEW.role = 'Member';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_role_on_lobby_join
+BEFORE INSERT OR UPDATE OF lobby_id ON sessions
+FOR EACH ROW
+WHEN (NEW.lobby_id IS NOT NULL)
+EXECUTE FUNCTION update_role_on_lobby_join();
+
+
+-- Изменение состояния лобби на "InvitesAccepted"
+CREATE OR REPLACE FUNCTION update_lobby_state_on_all_accepted()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM sessions WHERE lobby_id = NEW.lobby_id AND accepted = TRUE
+    ) = 4 AND (
+        SELECT state FROM lobbies WHERE id = NEW.lobby_id
+    ) = 'InvitesSent' THEN
+        UPDATE lobbies SET state = 'InvitesAccepted' WHERE id = NEW.lobby_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_lobby_state_on_all_accepted
+AFTER INSERT OR UPDATE ON sessions
+FOR EACH ROW
+WHEN (NEW.lobby_id IS NOT NULL AND NEW.accepted = TRUE)
+EXECUTE FUNCTION update_lobby_state_on_all_accepted();
+
+
+
+
+
+-- Изменение состояния лобби на "MembersLoaded"
+CREATE OR REPLACE FUNCTION update_lobby_state_on_all_loaded()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM sessions WHERE lobby_id = NEW.lobby_id AND loaded = TRUE
+    ) = 5 AND (
+        SELECT state FROM lobbies WHERE id = NEW.lobby_id
+    ) = 'InvitesAccepted' THEN
+        UPDATE lobbies SET state = 'MembersLoaded' WHERE id = NEW.lobby_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_lobby_state_on_all_loaded
+AFTER INSERT OR UPDATE ON sessions
+FOR EACH ROW
+WHEN (NEW.lobby_id IS NOT NULL AND NEW.loaded = TRUE)
+EXECUTE FUNCTION update_lobby_state_on_all_loaded();
+
+
+
+
+
+-- Изменение состояния игры на "Confirmed", когда количество сессий в игре равно 10:
+CREATE OR REPLACE FUNCTION update_game_state_on_all_joined()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM sessions WHERE game_id = NEW.game_id
+    ) = 10 AND (
+        SELECT state FROM games WHERE id = NEW.game_id
+    ) = 'Preparing' THEN
+        UPDATE games SET state = 'Confirmed' WHERE id = NEW.game_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_game_state_on_all_joined
+AFTER INSERT OR UPDATE ON sessions
+FOR EACH ROW
+WHEN (NEW.game_id IS NOT NULL)
+EXECUTE FUNCTION update_game_state_on_all_joined();
+
+
+-- Удаление лобби и игры после удаления сессии
+CREATE OR REPLACE FUNCTION delete_game_and_lobby_on_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM lobbies WHERE id = OLD.lobby_id;
+    DELETE FROM games WHERE id = OLD.game_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_delete_game_and_lobby_on_delete
+AFTER DELETE ON sessions
+FOR EACH ROW
+EXECUTE FUNCTION delete_game_and_lobby_on_delete();
+
+
+
+
+
+
+
+
+
+
+
+Функция для удаления устаревших записей:
+CREATE OR REPLACE FUNCTION delete_stale_records()
+RETURNS VOID AS $$
+BEGIN
+    -- Удаление устаревших сессий
+    DELETE FROM sessions
+    WHERE updated_at < NOW() - INTERVAL '12 hours';
+
+    -- Удаление устаревших лобби
+    DELETE FROM lobbies
+    WHERE updated_at < NOW() - INTERVAL '12 hours';
+
+    -- Удаление устаревших игр
+    DELETE FROM games
+    WHERE updated_at < NOW() - INTERVAL '12 hours';
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+Триггеры для вызова функции:
+-- Это скрипт настройки периодического запуска на уровне базы данных
+-- PostgreSQL версии >= 10 поддерживает pg_cron для этого
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Добавляем задание на выполнение каждую ночь
+SELECT cron.schedule('0 0 * * *', 'SELECT delete_stale_records()');
+
+
+
