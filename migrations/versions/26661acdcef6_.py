@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: de9c8d090aab
+Revision ID: 26661acdcef6
 Revises: 
-Create Date: 2024-08-26 12:40:50.392453
+Create Date: 2024-08-26 21:08:05.829368
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'de9c8d090aab'
+revision: str = '26661acdcef6'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -80,7 +80,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('username', sa.String(length=128), nullable=False),
     sa.Column('password', sa.String(length=128), server_default='', nullable=False),
-    sa.Column('acquired_at', sa.DateTime(), nullable=False),
+    sa.Column('acquired_at', sa.DateTime(), server_default=sa.text("'1900-01-01 00:00:00'"), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text("TIMEZONE('utc', now())"), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text("TIMEZONE('utc', now())"), nullable=False),
     sa.PrimaryKeyConstraint('id'),

@@ -1,6 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime
+from sqlalchemy import (
+    DateTime,
+    text
+)
 from sqlalchemy.orm import (
     Mapped,
     mapped_column
@@ -22,6 +25,6 @@ class VPNORM(Base):
     id: Mapped[guid_pk]
     username: Mapped[unique_str_128]
     password: Mapped[str_128]
-    acquired_at: Mapped[datetime] = mapped_column(DateTime, default=datetime(1900, 1, 1), index=True)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("'1900-01-01 00:00:00'"), index=True)
     created_at: Mapped[created_at]
     updated_at: Mapped[updated_at]
